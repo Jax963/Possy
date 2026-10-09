@@ -1,0 +1,2292 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>نظام سمارت فون للمبيعات والمخزون</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #0b1329;
+      --card-bg: rgba(22, 33, 62, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-primary: #38bdf8;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #a855f7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Tajawal', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+    }
+
+    #lock-screen {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 19, 41, 0.96);
+      backdrop-filter: blur(16px);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .pin-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 30px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+    .pin-display {
+      font-size: 2rem;
+      letter-spacing: 12px;
+      padding: 12px;
+      margin: 20px 0;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--card-border);
+      color: var(--accent-primary);
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .key-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: #fff;
+      font-size: 1.4rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      height: 56px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .key-btn:active {
+      transform: scale(0.93);
+      background: var(--accent-primary);
+      color: #000;
+    }
+
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--card-border);
+      padding: 10px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .header-left, .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: var(--accent-primary);
+    }
+    
+    .cloud-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 50px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .cloud-status.connected {
+      color: var(--accent-green);
+      border-color: rgba(16, 185, 129, 0.3);
+      background: rgba(16, 185, 129, 0.1);
+    }
+    .cloud-status.connected .status-dot {
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+    .cloud-status.disconnected {
+      color: var(--accent-rose);
+      border-color: rgba(244, 63, 94, 0.3);
+      background: rgba(244, 63, 94, 0.1);
+    }
+    .cloud-status.disconnected .status-dot {
+      background: var(--accent-rose);
+    }
+
+    .rate-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 5px 12px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent-amber);
+    }
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 5px 12px;
+      border-radius: 50px;
+      border: 1px solid var(--card-border);
+      font-size: 0.85rem;
+    }
+    .btn-lock {
+      background: transparent;
+      border: none;
+      color: var(--accent-rose);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+
+    .balances-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .bal-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .bal-title {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .bal-amount {
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    main {
+      flex: 1;
+      padding: 16px 16px 90px;
+      max-width: 1300px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.25s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0 12px;
+      z-index: 200;
+    }
+    .nav-item {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .nav-item.active {
+      color: var(--accent-primary);
+      font-weight: 700;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--accent-primary); color: #04101e; }
+    .btn-green { background: var(--accent-green); color: #022517; }
+    .btn-amber { background: var(--accent-amber); color: #2c1602; }
+    .btn-rose { background: var(--accent-rose); color: #fff; }
+    .btn-outline { background: rgba(255, 255, 255, 0.05); color: #fff; border: 1px solid var(--card-border); }
+
+    .pos-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 992px) {
+      .pos-layout { grid-template-columns: 1.6fr 1fr; }
+    }
+    .category-group {
+      margin-bottom: 20px;
+    }
+    .category-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: var(--radius-md);
+      margin-bottom: 10px;
+      border-right: 4px solid var(--accent-primary);
+    }
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+    }
+    .item-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+    .item-card:hover {
+      border-color: var(--accent-primary);
+      background: rgba(56, 189, 248, 0.05);
+    }
+    .item-card .name { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+    .item-card .qty { font-size: 0.75rem; color: var(--accent-amber); margin-bottom: 4px; }
+    .item-card .price { font-size: 1rem; font-weight: 800; color: var(--accent-green); }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .form-control {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .form-control:focus {
+      border-color: var(--accent-primary);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: #111a33;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+
+    .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+    .filter-pills { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+    .pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 5px 12px;
+      border-radius: 50px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .pill.active { background: var(--accent-primary); color: #051424; font-weight: 700; }
+    
+    .day-accordion-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .day-accordion-header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .day-accordion-header:hover {
+      background: rgba(56, 189, 248, 0.05);
+    }
+    .day-content-body {
+      padding: 12px;
+      display: none;
+      border-top: 1px solid var(--card-border);
+    }
+    .day-content-body.show {
+      display: block;
+    }
+    .log-item {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .log-meta { font-size: 0.75rem; color: var(--text-muted); display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+    .badge-seller { background: rgba(56, 189, 248, 0.15); color: var(--accent-primary); padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+
+    .debt-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 0.8rem;
+    }
+    .debt-badge-usd { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+    .debt-badge-syp { background: rgba(56, 189, 248, 0.15); color: var(--accent-primary); }
+  </style>
+</head>
+<body>
+
+  <!-- شاشة قفل البائع -->
+  <div id="lock-screen">
+    <div class="pin-card">
+      <i data-lucide="shield-check" style="width: 44px; height: 44px; color: var(--accent-primary); margin: 0 auto;"></i>
+      <h2 style="margin-top: 10px; font-weight: 800;">تسجيل دخول البائع</h2>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">أدخل الرمز السري لبدء الوردية</p>
+      <div id="pin-view" class="pin-display">----</div>
+      <div class="keypad">
+        <button class="key-btn" onclick="pressPin('1')">1</button>
+        <button class="key-btn" onclick="pressPin('2')">2</button>
+        <button class="key-btn" onclick="pressPin('3')">3</button>
+        <button class="key-btn" onclick="pressPin('4')">4</button>
+        <button class="key-btn" onclick="pressPin('5')">5</button>
+        <button class="key-btn" onclick="pressPin('6')">6</button>
+        <button class="key-btn" onclick="pressPin('7')">7</button>
+        <button class="key-btn" onclick="pressPin('8')">8</button>
+        <button class="key-btn" onclick="pressPin('9')">9</button>
+        <button class="key-btn" onclick="clearPin()" style="color: var(--accent-rose);"><i data-lucide="delete"></i></button>
+        <button class="key-btn" onclick="pressPin('0')">0</button>
+        <button class="key-btn" onclick="submitPin()" style="color: var(--accent-green);"><i data-lucide="check"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- الشريط العلوي -->
+  <header>
+    <div class="header-left">
+      <div class="brand">
+        <i data-lucide="smartphone"></i>
+        <span>سمارت فون POS</span>
+      </div>
+
+      <div id="cloud-status-badge" class="cloud-status connected" title="حالة الاتصال بقاعدة بيانات Firebase">
+        <span class="status-dot"></span>
+        <span id="cloud-status-text">متصل بالسحابة</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="rate-badge" onclick="editExchangeRate()" title="اضغط لتعديل سعر الصرف">
+        <i data-lucide="badge-dollar-sign" style="width: 15px; height: 15px;"></i>
+        <span>1$ = <span id="header-rate-val">15,000</span> ل.س</span>
+        <i data-lucide="edit-2" style="width: 12px; height: 12px; opacity: 0.8;"></i>
+      </div>
+
+      <div class="user-badge">
+        <i data-lucide="user-check" style="width: 15px; height: 15px; color: var(--accent-primary);"></i>
+        <span id="current-seller-name">غير مسجل</span>
+        <button class="btn-lock" onclick="lockSystem()" title="قفل / تبديل البائع">
+          <i data-lucide="log-out" style="width: 15px; height: 15px;"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. شاشة البيع (POS) -->
+    <div id="tab-pos" class="tab-content active">
+      <div class="pos-layout">
+        <div>
+          <div class="card" style="padding: 10px 14px; margin-bottom: 12px;">
+            <div class="search-bar" style="margin-bottom: 0;">
+              <input type="text" id="pos-search" class="form-control" placeholder="بحث سريع عن مادة للبيع..." oninput="renderPosItems()">
+            </div>
+          </div>
+          <div id="categories-container"></div>
+        </div>
+
+        <div>
+          <div class="card" style="position: sticky; top: 70px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h3 style="font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="shopping-cart" style="color: var(--accent-primary);"></i> الفاتورة الحالية
+              </h3>
+              <button class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="clearCart()">تفريغ</button>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label class="form-label">اسم الزبون:</label>
+              <input type="text" id="cart-customer-name" class="form-control" value="زبون عام" placeholder="أدخل اسم الزبون..." oninput="onCustomerNameTyped()">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label class="form-label">نوع الفاتورة:</label>
+              <select id="cart-payment-type" class="form-control" onchange="onPaymentTypeChange()">
+                <option value="CASH">نقدي (كاش الصندوق)</option>
+                <option value="DEBT">آجل (دين على الزبون)</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="group-customer-phone" style="display: none; margin-bottom: 12px;">
+              <label class="form-label" style="color: var(--accent-amber);">رقم هاتف الزبون (لإشعارات الواتساب والمتابعة):</label>
+              <input type="tel" id="cart-customer-phone" class="form-control" placeholder="مثال: 0912345678 أو 9639xxxxxxxx">
+            </div>
+            
+            <div id="cart-items" style="min-height: 140px; max-height: 250px; overflow-y: auto; margin-bottom: 14px;">
+              <p style="text-align: center; color: var(--text-muted); margin-top: 40px; font-size: 0.85rem;">السلة فارغة، اضغط على أي مادة لإضافتها</p>
+            </div>
+
+            <button id="btn-checkout" class="btn btn-green" style="width: 100%; height: 46px; font-size: 1.05rem;" onclick="checkoutCart()">
+              <i data-lucide="check-circle-2"></i> تأكيد الفاتورة وقبض المبالغ
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. شاشة ديون الزبائن -->
+    <div id="tab-debts" class="tab-content">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+          <div>
+            <h2 style="font-size: 1.15rem; font-weight: 800;">إدارة ديون الزبائن والتحصيل</h2>
+            <p style="color: var(--text-muted); font-size: 0.8rem;">متابعة المبالغ المتبقية بذمة الزبائن، تسديد الدفعات، وتصدير التقارير</p>
+          </div>
+        </div>
+
+        <div class="search-bar">
+          <input type="text" id="debts-search-input" class="form-control" placeholder="بحث باسم الزبون..." oninput="renderDebtsList()">
+        </div>
+
+        <div id="debts-list-container"></div>
+      </div>
+    </div>
+
+    <!-- 3. شاشة المخزون والمشتريات -->
+    <div id="tab-inventory" class="tab-content">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
+          <div>
+            <h2 style="font-size: 1.15rem; font-weight: 800;">إدارة المستودع والمخزون</h2>
+            <p style="color: var(--text-muted); font-size: 0.8rem;">تغذية المستودع بالمشتريات وتوثيق وتعديل بضاعة أول المدة مع الدمج التلقائي</p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-green" onclick="openPurchaseModal()">
+              <i data-lucide="truck"></i> + فاتورة مشتريات
+            </button>
+            <button class="btn btn-amber" onclick="openOpeningStockModal()">
+              <i data-lucide="package-plus"></i> + بضاعة أول المدة
+            </button>
+          </div>
+        </div>
+
+        <div id="inventory-list"></div>
+      </div>
+    </div>
+
+    <!-- 4. شاشة الصناديق والمسحوبات والنسخ الاحتياطي -->
+    <div id="tab-cash" class="tab-content">
+      <div class="balances-bar">
+        <div class="bal-card">
+          <div class="bal-title">كاش درَج ($)</div>
+          <div class="bal-amount" style="color: var(--accent-green);"><span id="cash-usd">0.00</span> $</div>
+        </div>
+        <div class="bal-card">
+          <div class="bal-title">كاش درَج (ل.س)</div>
+          <div class="bal-amount" style="color: var(--accent-primary);"><span id="cash-syp">0</span> ل.س</div>
+        </div>
+        <div class="bal-card">
+          <div class="bal-title">شام كاش ($)</div>
+          <div class="bal-amount" style="color: var(--accent-purple);"><span id="cham-usd">0.00</span> $</div>
+        </div>
+        <div class="bal-card">
+          <div class="bal-title">شام كاش (ل.س)</div>
+          <div class="bal-amount" style="color: var(--accent-amber);"><span id="cham-syp">0</span> ل.س</div>
+        </div>
+        <div class="bal-card" style="grid-column: 1 / -1; background: rgba(56, 189, 248, 0.05); border-color: rgba(56, 189, 248, 0.2);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div class="bal-title">أرباح اليوم التقديرية</div>
+              <div class="bal-amount" style="color: var(--accent-green);"><span id="daily-profit">0.00</span> $</div>
+            </div>
+            <i data-lucide="trending-up" style="color: var(--accent-green);"></i>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+        
+        <!-- تسجيل الصناديق أول المدة -->
+        <div class="card" style="border-color: rgba(16,185,129,0.3); grid-column: 1 / -1;">
+          <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 6px; color: var(--accent-green); font-size: 1.05rem;">
+            <i data-lucide="wallet"></i> تسجيل الصناديق أول المدة (الرصيد الافتتاحي)
+          </h3>
+          <div style="display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 10px; align-items: end;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">اختر الصندوق:</label>
+              <select id="opening-wallet-select" class="form-control">
+                <option value="cash_usd">كاش درَج - دولار ($)</option>
+                <option value="cash_syp">كاش درَج - ليرة سورية (ل.س)</option>
+                <option value="cham_usd">شام كاش - دولار ($)</option>
+                <option value="cham_syp">شام كاش - ليرة سورية (ل.س)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">المبلغ:</label>
+              <input type="number" id="opening-wallet-amount" class="form-control" placeholder="أدخل الرصيد الافتتاحي">
+            </div>
+            <button class="btn btn-green" style="height: 42px;" onclick="saveOpeningWalletBalance()">حفظ</button>
+          </div>
+        </div>
+
+        <!-- مسحوبات المالك -->
+        <div class="card" style="border-color: rgba(56,189,248,0.3);">
+          <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 6px; color: var(--accent-primary); font-size: 1.05rem;">
+            <i data-lucide="user"></i> مسحوبات المالك
+          </h3>
+          <div class="form-group">
+            <label class="form-label">المبلغ:</label>
+            <input type="number" id="owner-draw-amount" class="form-control" placeholder="أدخل المبلغ">
+          </div>
+          <div class="form-group">
+            <label class="form-label">من الصندوق:</label>
+            <select id="owner-draw-wallet" class="form-control">
+              <option value="cash_usd">كاش درَج - دولار ($)</option>
+              <option value="cash_syp">كاش درَج - ليرة سورية (ل.س)</option>
+              <option value="cham_usd">شام كاش - دولار ($)</option>
+              <option value="cham_syp">شام كاش - ليرة سورية (ل.س)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ملاحظة:</label>
+            <input type="text" id="owner-draw-note" class="form-control" placeholder="سبب السحب...">
+          </div>
+          <button class="btn btn-primary" style="width: 100%;" onclick="executeWithdrawal('OWNER')">سحب لصالح المالك</button>
+        </div>
+
+        <!-- مسحوبات أبو هاشم -->
+        <div class="card" style="border-color: rgba(245,158,11,0.3);">
+          <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 6px; color: var(--accent-amber); font-size: 1.05rem;">
+            <i data-lucide="user"></i> مسحوبات أبو هاشم
+          </h3>
+          <div class="form-group">
+            <label class="form-label">المبلغ:</label>
+            <input type="number" id="abuhashim-draw-amount" class="form-control" placeholder="أدخل المبلغ">
+          </div>
+          <div class="form-group">
+            <label class="form-label">من الصندوق:</label>
+            <select id="abuhashim-draw-wallet" class="form-control">
+              <option value="cash_usd">كاش درَج - دولار ($)</option>
+              <option value="cash_syp">كاش درَج - ليرة سورية (ل.س)</option>
+              <option value="cham_usd">شام كاش - دولار ($)</option>
+              <option value="cham_syp">شام كاش - ليرة سورية (ل.س)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ملاحظة:</label>
+            <input type="text" id="abuhashim-draw-note" class="form-control" placeholder="سبب السحب...">
+          </div>
+          <button class="btn btn-amber" style="width: 100%;" onclick="executeWithdrawal('ABUHASHIM')">سحب لصالح أبو هاشم</button>
+        </div>
+
+        <!-- تحويل وتصريف ومصاريف -->
+        <div class="card" style="grid-column: 1 / -1;">
+          <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 6px; color: var(--accent-green); font-size: 1.05rem;">
+            <i data-lucide="repeat"></i> تحويل وصرافة ومصاريف
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+            <div>
+              <h4 style="font-size: 0.9rem; margin-bottom: 8px;">حركة تحويل / تصريف يدوية</h4>
+              <div class="form-group"><input type="number" id="manual-fx-amount" class="form-control" placeholder="المبلغ"></div>
+              <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                <select id="manual-from-wallet" class="form-control">
+                  <option value="cash_usd">من: كاش $</option><option value="cash_syp">من: كاش ل.س</option><option value="cham_usd">من: شام $</option><option value="cham_syp" selected>من: شام ل.س</option>
+                </select>
+                <select id="manual-to-wallet" class="form-control">
+                  <option value="cash_usd" selected>إلى: كاش $</option><option value="cash_syp">إلى: كاش ل.س</option><option value="cham_usd">إلى: شام $</option><option value="cham_syp">إلى: شام ل.س</option>
+                </select>
+              </div>
+              <div class="form-group"><input type="number" id="manual-rate-input" class="form-control" placeholder="سعر الصرف"></div>
+              <button class="btn btn-outline" style="width: 100%;" onclick="executeManualExchange()">تنفيذ التحويل</button>
+            </div>
+            <div>
+              <h4 style="font-size: 0.9rem; margin-bottom: 8px;">تسجيل مصروف يومي</h4>
+              <div class="form-group"><input type="text" id="expense-title" class="form-control" placeholder="بيان المصروف..."></div>
+              <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                <input type="number" id="expense-amount" class="form-control" placeholder="المبلغ">
+                <select id="expense-wallet" class="form-control">
+                  <option value="cash_syp">كاش ل.س</option><option value="cash_usd">كاش $</option><option value="cham_syp">شام ل.س</option><option value="cham_usd">شام $</option>
+                </select>
+              </div>
+              <button class="btn btn-rose" style="width: 100%;" onclick="addExpense()">تسجيل المصروف</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- منظومة النسخ الاحتياطي والأمان المالي -->
+        <div class="card" style="grid-column: 1 / -1; border-color: rgba(56, 189, 248, 0.3);">
+          <h3 style="margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: var(--accent-primary); font-size: 1.05rem;">
+            <i data-lucide="shield"></i> منظومة النسخ الاحتياطي والأمان
+          </h3>
+          <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 14px;">
+            يتم حفظ نسخة احتياطية سحابية تلقائياً كل يوم. يمكنك أيضاً تنزيل نسخة كاملة على جهازك أو استعادتها في أي وقت.
+          </p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="exportDataBackup()">
+              <i data-lucide="download"></i> تحميل نسخة احتياطية (ملف JSON)
+            </button>
+            <button class="btn btn-outline" onclick="triggerRestoreInput()">
+              <i data-lucide="upload"></i> استعادة البيانات من ملف
+            </button>
+            <input type="file" id="restore-file-input" style="display: none;" accept=".json" onchange="importDataBackup(event)">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 5. شاشة السجل العام -->
+    <div id="tab-history" class="tab-content">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+          <h2 style="font-size: 1.15rem; font-weight: 800;">سجل الحركات العام</h2>
+          <button class="btn btn-primary" onclick="printFinancialTableReport()">
+            <i data-lucide="printer"></i> طباعة جدول المبيعات والمقبوضات (PDF)
+          </button>
+        </div>
+        
+        <div class="search-bar">
+          <input type="text" id="log-search-input" class="form-control" placeholder="ابحث باسم المادة، البائع، الزبون..." oninput="renderAuditLog()">
+        </div>
+
+        <div class="filter-pills">
+          <div class="pill active" onclick="setLogFilter('ALL', this)">الكل</div>
+          <div class="pill" onclick="setLogFilter('SALE', this)">المبيعات</div>
+          <div class="pill" onclick="setLogFilter('DEBT_PAYMENT', this)">سداد الديون</div>
+          <div class="pill" onclick="setLogFilter('PURCHASE', this)">المشتريات</div>
+          <div class="pill" onclick="setLogFilter('EXCHANGE', this)">الصرافة</div>
+          <div class="pill" onclick="setLogFilter('EXPENSE', this)">المصاريف</div>
+          <div class="pill" onclick="setLogFilter('WITHDRAWAL', this)">المسحوبات</div>
+        </div>
+
+        <div id="log-results-container"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- شريط التنقل السفلي -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-pos" onclick="switchTab('pos', this)">
+      <i data-lucide="layout-grid"></i>
+      <span>نقطة البيع</span>
+    </button>
+    <button class="nav-item" id="nav-debts" onclick="switchTab('debts', this)">
+      <i data-lucide="users"></i>
+      <span>الديون</span>
+    </button>
+    <button class="nav-item" id="nav-inventory" onclick="switchTab('inventory', this)">
+      <i data-lucide="boxes"></i>
+      <span>المخزون</span>
+    </button>
+    <button class="nav-item" id="nav-cash" onclick="switchTab('cash', this)">
+      <i data-lucide="wallet"></i>
+      <span>الصناديق</span>
+    </button>
+    <button class="nav-item" id="nav-history" onclick="switchTab('history', this)">
+      <i data-lucide="clock-3"></i>
+      <span>السجل</span>
+    </button>
+  </nav>
+
+  <!-- نافذة البيع -->
+  <div id="sell-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 6px;" id="modal-item-name">اسم المادة</h3>
+      <p style="font-size: 0.8rem; color: var(--accent-amber); margin-bottom: 14px;" id="modal-item-stock">المتوفر: 0</p>
+      
+      <div class="form-group">
+        <label class="form-label">سعر البيع:</label>
+        <input type="number" id="modal-item-price" class="form-control" step="0.25">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">الكمية:</label>
+        <input type="number" id="modal-item-qty" class="form-control" value="1" min="1">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">صندوق القبض والعملة (للبيع النقدي):</label>
+        <select id="modal-item-wallet" class="form-control">
+          <option value="cash_usd">كاش درَج - دولار ($)</option>
+          <option value="cash_syp">كاش درَج - ليرة سورية (ل.س)</option>
+          <option value="cham_usd">شام كاش - دولار ($)</option>
+          <option value="cham_syp">شام كاش - ليرة سورية (ل.س)</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-primary" style="flex: 1;" onclick="confirmAddToCart()">إضافة للفاتورة</button>
+        <button class="btn btn-outline" onclick="closeModal('sell-modal')">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة تعديل بيانات المخزون -->
+  <div id="edit-inventory-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 6px; color: var(--accent-amber);">تعديل مادة في المخزون</h3>
+      <input type="hidden" id="edit-inv-id">
+      
+      <div class="form-group">
+        <label class="form-label">اسم المادة:</label>
+        <input type="text" id="edit-inv-name" class="form-control">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">التصنيف:</label>
+        <input type="text" id="edit-inv-cat" class="form-control">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div class="form-group">
+          <label class="form-label">الكمية بالمخزن:</label>
+          <input type="number" id="edit-inv-qty" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">سعر التكلفة ($):</label>
+          <input type="number" id="edit-inv-cost" class="form-control" step="0.25">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">سعر البيع الافتراضي ($):</label>
+        <input type="number" id="edit-inv-price" class="form-control" step="0.25">
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-green" style="flex: 1;" onclick="saveEditedInventoryItem()">حفظ التعديل</button>
+        <button class="btn btn-outline" onclick="closeModal('edit-inventory-modal')">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة تعديل الفاتورة من السجل -->
+  <div id="edit-sale-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 4px; color: var(--accent-amber);">تعديل تفاصيل الفاتورة</h3>
+      <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 14px;">قم بتعديل الكمية أو السعر. (تعديل الكمية إلى 0 يعني إلغاء القطعة واستردادها).</p>
+      
+      <div id="edit-sale-items-container" style="max-height: 350px; overflow-y: auto; margin-bottom: 14px;"></div>
+
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-green" style="flex: 1;" onclick="saveEditedSale()">حفظ التعديلات</button>
+        <button class="btn btn-outline" onclick="closeModal('edit-sale-modal')">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة تسديد الدفعة للزبون -->
+  <div id="pay-debt-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 4px; color: var(--accent-green);">قبض دفعة من زبون</h3>
+      <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 12px;" id="pay-debt-customer-name">الزبون: </p>
+      
+      <div class="form-group">
+        <label class="form-label">المبلغ المسدد:</label>
+        <input type="number" id="pay-debt-amount" class="form-control" placeholder="أدخل الدفعة...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">الصندوق المستلم للدفعة:</label>
+        <select id="pay-debt-wallet" class="form-control">
+          <option value="cash_usd">كاش درَج - دولار ($)</option>
+          <option value="cash_syp">كاش درَج - ليرة سورية (ل.س)</option>
+          <option value="cham_usd">شام كاش - دولار ($)</option>
+          <option value="cham_syp">شام كاش - ليرة سورية (ل.س)</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 14px;">
+        <button class="btn btn-green" style="flex: 1;" onclick="executePayDebt()">تأكيد القبض والتسجيل</button>
+        <button class="btn btn-outline" onclick="closeModal('pay-debt-modal')">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة المشتريات -->
+  <div id="purchase-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 4px; color: var(--accent-green);"><i data-lucide="truck"></i> فاتورة مشتريات</h3>
+      <div class="form-group">
+        <label class="form-label">اسم المادة (اختر مادة سابقة أو اكتب اسماً جديداً):</label>
+        <input type="text" id="pur-item-name" class="form-control" list="existing-items-datalist" placeholder="اكتب أو اختر اسم المادة...">
+        <datalist id="existing-items-datalist"></datalist>
+      </div>
+      <div class="form-group">
+        <label class="form-label">التصنيف:</label>
+        <input type="text" id="pur-cat" class="form-control" value="عام">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div class="form-group"><label class="form-label">الكمية المشتراة:</label><input type="number" id="pur-qty" class="form-control" value="1"></div>
+        <div class="form-group"><label class="form-label">سعر التكلفة ($):</label><input type="number" id="pur-cost" class="form-control" step="0.25"></div>
+      </div>
+      <div class="form-group"><label class="form-label">سعر البيع الافتراضي ($):</label><input type="number" id="pur-price" class="form-control" step="0.25"></div>
+      <div class="form-group">
+        <label class="form-label">الصندوق الدافع:</label>
+        <select id="pur-wallet" class="form-control">
+          <option value="cash_usd">كاش $</option><option value="cash_syp">كاش ل.س</option><option value="cham_usd">شام $</option><option value="cham_syp">شام ل.س</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-green" style="flex: 1;" onclick="executePurchaseInvoice()">تأكيد الشراء والدمج</button>
+        <button class="btn btn-outline" onclick="closeModal('purchase-modal')">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة بضاعة أول المدة -->
+  <div id="opening-stock-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 4px; color: var(--accent-amber);"><i data-lucide="package-plus"></i> إدخال بضاعة أول المدة</h3>
+      <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 14px;">إذا كانت المادة موجودة، سيتم دمجها وحساب متوسط التكلفة تلقائياً بدون خصم مالي</p>
+      
+      <div class="form-group">
+        <label class="form-label">اسم المادة:</label>
+        <input type="text" id="open-stock-name" class="form-control" placeholder="اسم المادة الجديدة أو الموجودة..." list="existing-items-datalist">
+      </div>
+      <div class="form-group">
+        <label class="form-label">التصنيف:</label>
+        <input type="text" id="open-stock-cat" class="form-control" placeholder="التصنيف (مثال: شواحن، إكسسوارات)..." value="عام">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div class="form-group"><label class="form-label">الكمية:</label><input type="number" id="open-stock-qty" class="form-control" value="1"></div>
+        <div class="form-group"><label class="form-label">سعر التكلفة ($):</label><input type="number" id="open-stock-cost" class="form-control" step="0.25"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">سعر البيع الافتراضي ($):</label>
+        <input type="number" id="open-stock-price" class="form-control" step="0.25">
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 14px;">
+        <button class="btn btn-amber" style="flex: 1;" onclick="executeOpeningStock()">حفظ وإضافة للمخزون</button>
+        <button class="btn btn-outline" onclick="closeModal('opening-stock-modal')">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA_uSHbIGhJJsW41kqftqV4rMSmwko8aEA",
+      authDomain: "smartphone-5a3d2.firebaseapp.com",
+      databaseURL: "https://smartphone-5a3d2-default-rtdb.firebaseio.com",
+      projectId: "smartphone-5a3d2",
+      storageBucket: "smartphone-5a3d2.firebasestorage.app",
+      messagingSenderId: "31381440976",
+      appId: "1:31381440976:web:963e5b713e39748ffd51d5"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // تشغيل الحفظ المحلي والمزامنة دون انقطاع
+    try {
+      db.setPersistenceEnabled(true);
+    } catch(e) {
+      console.log("Persistence setup notice:", e);
+    }
+
+    const connectedRef = db.ref(".info/connected");
+    connectedRef.on("value", snap => {
+      const isConnected = snap.val() === true;
+      const badge = document.getElementById('cloud-status-badge');
+      const text = document.getElementById('cloud-status-text');
+      if (isConnected) {
+        badge.className = 'cloud-status connected';
+        text.innerText = 'متصل بالسحابة';
+      } else {
+        badge.className = 'cloud-status disconnected';
+        text.innerText = 'يعمل محلياً (غير متصل)';
+      }
+    });
+
+    let currentSeller = "";
+    let enteredPin = "";
+    let exchangeRate = 15000;
+    let systemData = { inventory: {}, wallets: { cash_usd: 0, cash_syp: 0, cham_usd: 0, cham_syp: 0 }, logs: {}, customerPhones: {} };
+    let currentCart = [];
+    let selectedItemForSell = null;
+    let activeLogFilter = 'ALL';
+    let currentEditingLogKey = null;
+    let editingItemsBuffer = [];
+    let selectedCustomerForPay = null;
+
+    function pressPin(n) {
+      if (enteredPin.length < 4) { enteredPin += n; updatePinView(); }
+      if (enteredPin.length === 4) submitPin();
+    }
+    function clearPin() { enteredPin = ""; updatePinView(); }
+    function updatePinView() { document.getElementById('pin-view').innerText = enteredPin.replace(/./g, '•').padEnd(4, '-'); }
+    function submitPin() {
+      if (enteredPin === "7591") { currentSeller = "أبو هاشم"; unlockSystem(); }
+      else if (enteredPin === "1981") { currentSeller = "أبو إبراهيم"; unlockSystem(); }
+      else { alert("رمز سري خاطئ!"); clearPin(); }
+    }
+    function unlockSystem() {
+      document.getElementById('current-seller-name').innerText = currentSeller;
+      document.getElementById('lock-screen').style.display = 'none';
+      clearPin();
+      triggerDailySnapshot();
+    }
+    function lockSystem() {
+      currentSeller = "";
+      document.getElementById('current-seller-name').innerText = "غير مسجل";
+      document.getElementById('lock-screen').style.display = 'flex';
+      clearPin();
+    }
+
+    function getTime24() {
+      const now = new Date();
+      return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+    function getDateFormatted() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    }
+
+    function editExchangeRate() {
+      const newRate = prompt("أدخل سعر صرف الـ 1 دولار مقابل الليرة السورية:", exchangeRate);
+      if (newRate && !isNaN(parseFloat(newRate))) db.ref('settings/exchangeRate').set(parseFloat(newRate));
+    }
+
+    db.ref().on('value', snap => {
+      const val = snap.val() || {};
+      systemData.inventory = val.inventory || {};
+      systemData.logs = val.logs || {};
+      systemData.customerPhones = val.customerPhones || {};
+      exchangeRate = (val.settings && val.settings.exchangeRate) ? Number(val.settings.exchangeRate) : 15000;
+      systemData.wallets = val.wallets || { cash_usd: 0, cash_syp: 0, cham_usd: 0, cham_syp: 0 };
+
+      // حفظ نسخة احتياطية في ذاكرة المتصفح المحلية كصمام أمان ثانٍ
+      try {
+        localStorage.setItem('smartphone_local_cache', JSON.stringify({
+          inventory: systemData.inventory,
+          wallets: systemData.wallets,
+          logs: systemData.logs,
+          customerPhones: systemData.customerPhones,
+          exchangeRate: exchangeRate,
+          timestamp: new Date().toISOString()
+        }));
+      } catch(e) {}
+
+      document.getElementById('header-rate-val').innerText = exchangeRate.toLocaleString();
+      if (document.getElementById('manual-rate-input')) document.getElementById('manual-rate-input').value = exchangeRate;
+
+      updateBalancesUI();
+      renderPosItems();
+      renderInventoryUI();
+      populateItemsDatalist();
+      renderAuditLog();
+      renderDebtsList();
+    });
+
+    function updateBalancesUI() {
+      document.getElementById('cash-usd').innerText = Number(systemData.wallets.cash_usd || 0).toFixed(2);
+      document.getElementById('cash-syp').innerText = Number(systemData.wallets.cash_syp || 0).toLocaleString();
+      document.getElementById('cham-usd').innerText = Number(systemData.wallets.cham_usd || 0).toFixed(2);
+      document.getElementById('cham-syp').innerText = Number(systemData.wallets.cham_syp || 0).toLocaleString();
+
+      const today = getDateFormatted();
+      let todayProfit = 0;
+      Object.values(systemData.logs).forEach(log => {
+        if (log.date === today && log.profit && !log.canceled) todayProfit += Number(log.profit);
+      });
+      document.getElementById('daily-profit').innerText = todayProfit.toFixed(2);
+    }
+
+    function renderPosItems() {
+      const container = document.getElementById('categories-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const search = (document.getElementById('pos-search').value || '').toLowerCase().trim();
+      const grouped = {};
+
+      Object.keys(systemData.inventory).forEach(id => {
+        const item = systemData.inventory[id];
+        item.id = id;
+        if (search && !item.name.toLowerCase().includes(search)) return;
+        const cat = item.category || 'عام';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(item);
+      });
+
+      for (const [catName, items] of Object.entries(grouped)) {
+        const groupEl = document.createElement('div');
+        groupEl.className = 'category-group';
+
+        const headerEl = document.createElement('div');
+        headerEl.className = 'category-header';
+        headerEl.innerHTML = `<span style="font-weight: 700;">${catName}</span>`;
+        groupEl.appendChild(headerEl);
+
+        const gridEl = document.createElement('div');
+        gridEl.className = 'items-grid';
+
+        items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'item-card';
+          const qty = Number(item.quantity || 0);
+          card.innerHTML = `
+            <div class="name">${item.name}</div>
+            <div class="qty" style="color: ${qty > 0 ? 'var(--accent-amber)' : 'var(--accent-rose)'};">${qty > 0 ? `المتوفر: ${qty}` : 'نفدت الكمية'}</div>
+            <div class="price">${Number(item.price || 0).toFixed(2)} $</div>
+          `;
+          card.onclick = () => openSellModal(item);
+          gridEl.appendChild(card);
+        });
+
+        groupEl.appendChild(gridEl);
+        container.appendChild(groupEl);
+      }
+      lucide.createIcons();
+    }
+
+    function openSellModal(item) {
+      if ((item.quantity || 0) <= 0) { alert("هذه المادة غير متوفرة في المستودع حالياً!"); return; }
+      selectedItemForSell = item;
+      document.getElementById('modal-item-name').innerText = item.name;
+      document.getElementById('modal-item-stock').innerText = `المتوفر: ${item.quantity}`;
+      document.getElementById('modal-item-price').value = item.price || 0;
+      document.getElementById('modal-item-qty').value = 1;
+      document.getElementById('sell-modal').classList.add('show');
+    }
+
+    function confirmAddToCart() {
+      const price = parseFloat(document.getElementById('modal-item-price').value);
+      const qty = parseInt(document.getElementById('modal-item-qty').value);
+      const wallet = document.getElementById('modal-item-wallet').value;
+
+      if (isNaN(price) || price < 0 || isNaN(qty) || qty <= 0) { alert("تأكد من السعر والكمية"); return; }
+      if (qty > selectedItemForSell.quantity) { alert("الكمية أكبر من المتوفر بالمخزون!"); return; }
+
+      currentCart.push({ id: selectedItemForSell.id, name: selectedItemForSell.name, cost: selectedItemForSell.cost || 0, price: price, quantity: qty, wallet: wallet });
+      closeModal('sell-modal');
+      renderCartUI();
+    }
+
+    function renderCartUI() {
+      const container = document.getElementById('cart-items');
+      if (currentCart.length === 0) { container.innerHTML = '<p style="text-align: center; color: var(--text-muted); margin-top: 40px;">السلة فارغة</p>'; return; }
+      container.innerHTML = '';
+      currentCart.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.style = 'display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);';
+        row.innerHTML = `<div><div style="font-weight:700; font-size:0.88rem;">${item.name} (${item.quantity}×)</div><div style="font-size:0.75rem; color:var(--text-muted);">${item.price} لكل مادة | ${getWalletName(item.wallet)}</div></div><button onclick="currentCart.splice(${idx},1);renderCartUI();" style="background:none; border:none; color:var(--accent-rose); cursor:pointer;"><i data-lucide="trash-2" style="width:14px;"></i></button>`;
+        container.appendChild(row);
+      });
+      lucide.createIcons();
+    }
+
+    function clearCart() {
+      currentCart = [];
+      renderCartUI();
+    }
+
+    function onPaymentTypeChange() {
+      const payType = document.getElementById('cart-payment-type').value;
+      const btn = document.getElementById('btn-checkout');
+      const phoneGroup = document.getElementById('group-customer-phone');
+
+      if (payType === 'DEBT') {
+        phoneGroup.style.display = 'block';
+        btn.className = 'btn btn-amber';
+        btn.innerHTML = '<i data-lucide="check-circle-2"></i> تأكيد الفاتورة (تسجيل دين على الزبون)';
+        onCustomerNameTyped();
+      } else {
+        phoneGroup.style.display = 'none';
+        btn.className = 'btn btn-green';
+        btn.innerHTML = '<i data-lucide="check-circle-2"></i> تأكيد الفاتورة وقبض المبالغ';
+      }
+      lucide.createIcons();
+    }
+
+    function onCustomerNameTyped() {
+      const cName = document.getElementById('cart-customer-name').value.trim();
+      const phoneInput = document.getElementById('cart-customer-phone');
+      if (systemData.customerPhones && systemData.customerPhones[cName]) {
+        phoneInput.value = systemData.customerPhones[cName];
+      }
+    }
+
+    function checkoutCart() {
+      if (currentCart.length === 0) { alert("السلة فارغة!"); return; }
+      const customerName = document.getElementById('cart-customer-name').value.trim() || 'زبون عام';
+      const paymentType = document.getElementById('cart-payment-type').value;
+      const customerPhone = document.getElementById('cart-customer-phone').value.trim();
+
+      if (paymentType === 'DEBT') {
+        if (customerName === 'زبون عام') {
+          alert("يرجى كتابة اسم الزبون الحقيقي لتسجيل الفاتورة الآجلة في حسابه!");
+          return;
+        }
+        if (!customerPhone) {
+          alert("يرجى إدخال رقم هاتف الزبون لإتمام الفاتورة الآجلة وحفظ بيانات التواصل!");
+          return;
+        }
+      }
+
+      const updates = {};
+      let totalProfit = 0;
+      const walletAmounts = {};
+      let totalDebtUSD = 0;
+      let totalDebtSYP = 0;
+
+      currentCart.forEach(c => {
+        const itemTotal = c.price * c.quantity;
+        const itemCostTotal = c.cost * c.quantity;
+        const isUSD = c.wallet.includes('usd');
+        const itemTotalUSDEquivalent = isUSD ? itemTotal : (itemTotal / exchangeRate);
+        totalProfit += (itemTotalUSDEquivalent - itemCostTotal);
+
+        const curStock = Number(systemData.inventory[c.id]?.quantity) || 0;
+        updates[`inventory/${c.id}/quantity`] = curStock - c.quantity;
+
+        if (paymentType === 'CASH') {
+          if (!walletAmounts[c.wallet]) walletAmounts[c.wallet] = 0;
+          walletAmounts[c.wallet] += itemTotal;
+        } else {
+          if (isUSD) totalDebtUSD += itemTotal;
+          else totalDebtSYP += itemTotal;
+        }
+      });
+
+      if (paymentType === 'CASH') {
+        for (const [wKey, amt] of Object.entries(walletAmounts)) {
+          updates[`wallets/${wKey}`] = (Number(systemData.wallets[wKey]) || 0) + amt;
+        }
+      } else {
+        if (customerPhone) {
+          updates[`customerPhones/${customerName}`] = customerPhone;
+        }
+      }
+
+      const logKey = db.ref('logs').push().key;
+      updates[`logs/${logKey}`] = {
+        type: 'SALE',
+        paymentType: paymentType,
+        customerName: customerName,
+        customerPhone: customerPhone || '',
+        title: paymentType === 'DEBT' ? `فاتورة دين آجل: ${customerName} (${currentCart.length} مواد)` : `فاتورة بيع نقدي: ${customerName} (${currentCart.length} مواد)`,
+        items: JSON.parse(JSON.stringify(currentCart)),
+        profit: totalProfit,
+        seller: currentSeller,
+        time: getTime24(),
+        date: getDateFormatted()
+      };
+
+      db.ref().update(updates).then(() => {
+        if (paymentType === 'DEBT') {
+          if (confirm("تم تسجيل الفاتورة كدين بنجاح!\nهل ترغب في إرسال تفاصيل الفاتورة والذمة المالية للزبون عبر واتساب الآن؟")) {
+            sendInvoiceWhatsApp(customerName, customerPhone, currentCart);
+          }
+        } else {
+          alert("تمت الفاتورة وقبض المبالغ بنجاح!");
+        }
+
+        currentCart = [];
+        document.getElementById('cart-customer-name').value = 'زبون عام';
+        document.getElementById('cart-customer-phone').value = '';
+        document.getElementById('cart-payment-type').value = 'CASH';
+        onPaymentTypeChange();
+        renderCartUI();
+      });
+    }
+
+    function sendInvoiceWhatsApp(customerName, phone, items) {
+      if (!phone) return;
+      let cleanPhone = phone.replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('0')) cleanPhone = '963' + cleanPhone.substring(1);
+
+      let msg = `*فاتورة بيع آجل - سمارت فون POS*\n`;
+      msg += `الزبون المحترم: *${customerName}*\n`;
+      msg += `التاريخ: ${getDateFormatted()} | ${getTime24()}\n`;
+      msg += `--------------------------------\n`;
+      msg += `*المواد المشتراة:*\n`;
+      items.forEach(i => {
+        msg += `• ${i.name} (عدد ${i.quantity}) بسعر: ${i.price}\n`;
+      });
+      msg += `--------------------------------\n`;
+      
+      const balances = calculateCustomerBalances(customerName);
+      msg += `*إجمالي الذمة الحالية المتبقية بذمتكم:*\n`;
+      if (balances.usd > 0) msg += `• بالدولار: *${balances.usd.toFixed(2)} $* \n`;
+      if (balances.syp > 0) msg += `• بالليرة: *${balances.syp.toLocaleString()} ل.س* \n`;
+      msg += `--------------------------------\nشاكرين حسن تعاملكم معنا!`;
+
+      const encoded = encodeURIComponent(msg);
+      window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}`, '_blank');
+    }
+
+    function calculateCustomerBalances(customerName) {
+      let usd = 0;
+      let syp = 0;
+
+      Object.values(systemData.logs || {}).forEach(l => {
+        if (l.canceled || l.customerName !== customerName) return;
+
+        if (l.type === 'SALE' && l.paymentType === 'DEBT') {
+          (l.items || []).forEach(it => {
+            const amt = it.price * it.quantity;
+            if (it.wallet.includes('usd')) usd += amt;
+            else syp += amt;
+          });
+        } else if (l.type === 'DEBT_PAYMENT') {
+          const amt = Number(l.amount) || 0;
+          if (l.wallet.includes('usd')) usd = Math.max(0, usd - amt);
+          else syp = Math.max(0, syp - amt);
+        }
+      });
+
+      return { usd, syp };
+    }
+
+    function renderDebtsList() {
+      const container = document.getElementById('debts-list-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const search = (document.getElementById('debts-search-input')?.value || '').toLowerCase().trim();
+
+      const customerDebtsMap = {};
+      Object.values(systemData.logs || {}).forEach(l => {
+        if (!l.customerName || l.customerName === 'زبون عام' || l.canceled) return;
+        if (!customerDebtsMap[l.customerName]) {
+          customerDebtsMap[l.customerName] = { usd: 0, syp: 0 };
+        }
+
+        if (l.type === 'SALE' && l.paymentType === 'DEBT') {
+          (l.items || []).forEach(it => {
+            const amt = it.price * it.quantity;
+            if (it.wallet.includes('usd')) customerDebtsMap[l.customerName].usd += amt;
+            else customerDebtsMap[l.customerName].syp += amt;
+          });
+        } else if (l.type === 'DEBT_PAYMENT') {
+          const amt = Number(l.amount) || 0;
+          if (l.wallet.includes('usd')) {
+            customerDebtsMap[l.customerName].usd = Math.max(0, customerDebtsMap[l.customerName].usd - amt);
+          } else {
+            customerDebtsMap[l.customerName].syp = Math.max(0, customerDebtsMap[l.customerName].syp - amt);
+          }
+        }
+      });
+
+      let count = 0;
+      for (const [custName, bal] of Object.entries(customerDebtsMap)) {
+        if (bal.usd <= 0 && bal.syp <= 0) continue;
+        if (search && !custName.toLowerCase().includes(search)) return;
+
+        count++;
+        const phone = (systemData.customerPhones && systemData.customerPhones[custName]) ? systemData.customerPhones[custName] : '';
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style = 'margin-bottom: 10px; padding: 12px 14px;';
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <div style="font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="user" style="color: var(--accent-primary); width: 18px;"></i> ${custName}
+                ${phone ? `<span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">(${phone})</span>` : ''}
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 6px;">
+                ${bal.usd > 0 ? `<span class="debt-badge debt-badge-usd">متبقي: ${bal.usd.toFixed(2)} $</span>` : ''}
+                ${bal.syp > 0 ? `<span class="debt-badge debt-badge-syp">متبقي: ${bal.syp.toLocaleString()} ل.س</span>` : ''}
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-green" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openPayDebtModal('${custName}')">
+                <i data-lucide="hand-coins" style="width: 14px;"></i> قبض دفعة
+              </button>
+              <button class="btn btn-outline" style="padding: 6px 10px; font-size: 0.8rem; color: #25d366; border-color: rgba(37,211,102,0.4);" onclick="shareDebtWhatsApp('${custName}')">
+                <i data-lucide="share-2" style="width: 14px;"></i> إرسال كشف
+              </button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      }
+
+      if (count === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 25px;">لا توجد أي ديون مسجلة بذمة الزبائن حالياً.</p>';
+      }
+      lucide.createIcons();
+    }
+
+    function openPayDebtModal(customerName) {
+      selectedCustomerForPay = customerName;
+      document.getElementById('pay-debt-customer-name').innerText = `الزبون: ${customerName}`;
+      document.getElementById('pay-debt-amount').value = '';
+      document.getElementById('pay-debt-modal').classList.add('show');
+    }
+
+    function executePayDebt() {
+      const amount = parseFloat(document.getElementById('pay-debt-amount').value);
+      const wallet = document.getElementById('pay-debt-wallet').value;
+      if (!amount || amount <= 0 || !selectedCustomerForPay) { alert("أدخل مبلغ الدفعة بشكل صحيح"); return; }
+
+      const isUSD = wallet.includes('usd');
+      const balances = calculateCustomerBalances(selectedCustomerForPay);
+      const curDebt = isUSD ? balances.usd : balances.syp;
+      const newDebt = Math.max(0, curDebt - amount);
+
+      const updates = {};
+      updates[`wallets/${wallet}`] = (Number(systemData.wallets[wallet]) || 0) + amount;
+
+      const logKey = db.ref('logs').push().key;
+      updates[`logs/${logKey}`] = {
+        type: 'DEBT_PAYMENT',
+        customerName: selectedCustomerForPay,
+        title: `تسديد دفعة دين من الزبون: ${selectedCustomerForPay}`,
+        amount: amount,
+        wallet: wallet,
+        remainingDebt: newDebt,
+        seller: currentSeller,
+        time: getTime24(),
+        date: getDateFormatted()
+      };
+
+      db.ref().update(updates).then(() => {
+        closeModal('pay-debt-modal');
+        if (confirm("تم قبض الدفعة وتغذية الصندوق بنجاح!\nهل ترغب في إرسال إشعار استلام الدفعة والرصيد المتبقي للزبون عبر واتساب؟")) {
+          const phone = systemData.customerPhones ? systemData.customerPhones[selectedCustomerForPay] : '';
+          shareDebtReceiptWhatsApp(selectedCustomerForPay, phone, amount, isUSD ? '$' : 'ل.س', newDebt);
+        }
+      });
+    }
+
+    function shareDebtReceiptWhatsApp(customerName, phone, paidAmt, currencySymbol, remaining) {
+      let cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('0')) cleanPhone = '963' + cleanPhone.substring(1);
+
+      let msg = `*إشعار قبض دفعة نقدية - سمارت فون POS*\n`;
+      msg += `الزبون المحترم: *${customerName}*\n`;
+      msg += `التاريخ: ${getDateFormatted()} | ${getTime24()}\n`;
+      msg += `--------------------------------\n`;
+      msg += `تم استلام دفعة بقيمة: *${paidAmt.toLocaleString()} ${currencySymbol}*\n`;
+      msg += `الرصيد المتبقي بذمتكم: *${remaining.toLocaleString()} ${currencySymbol}*\n`;
+      msg += `--------------------------------\nشاكرين حسن تعاملكم معنا!`;
+
+      const encoded = encodeURIComponent(msg);
+      const url = cleanPhone ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+      window.open(url, '_blank');
+    }
+
+    function shareDebtWhatsApp(customerName) {
+      const balances = calculateCustomerBalances(customerName);
+      const phone = systemData.customerPhones ? systemData.customerPhones[customerName] : '';
+      let cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('0')) cleanPhone = '963' + cleanPhone.substring(1);
+
+      let msg = `*كشف حساب وذمة مالية - سمارت فون POS*\n`;
+      msg += `الزبون المحترم: *${customerName}*\n`;
+      msg += `التاريخ: ${getDateFormatted()} | ${getTime24()}\n`;
+      msg += `--------------------------------\n`;
+      msg += `*الرصيد المتبقي بذمتكم:*\n`;
+      if (balances.usd > 0) msg += `• بالدولار: *${balances.usd.toFixed(2)} $* \n`;
+      if (balances.syp > 0) msg += `• بالليرة السورية: *${balances.syp.toLocaleString()} ل.س* \n`;
+      msg += `--------------------------------\n`;
+      msg += `شاكرين حسن تعاملكم معنا!`;
+
+      const encoded = encodeURIComponent(msg);
+      const url = cleanPhone ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+      window.open(url, '_blank');
+    }
+
+    function printFinancialTableReport() {
+      const logs = Object.values(systemData.logs || {});
+      const today = getDateFormatted();
+
+      let tableRows = '';
+      let totalCashUSD = 0;
+      let totalCashSYP = 0;
+      let totalDebtsUSD = 0;
+      let totalDebtsSYP = 0;
+
+      logs.forEach(l => {
+        if (l.canceled) return;
+        if (l.type === 'SALE') {
+          const isDebt = l.paymentType === 'DEBT';
+          const itemsStr = (l.items || []).map(i => `${i.name} (${i.quantity})`).join(', ');
+          
+          let saleUSD = 0;
+          let saleSYP = 0;
+          (l.items || []).forEach(it => {
+            const amt = it.price * it.quantity;
+            if (it.wallet.includes('usd')) saleUSD += amt;
+            else saleSYP += amt;
+          });
+
+          if (isDebt) {
+            totalDebtsUSD += saleUSD;
+            totalDebtsSYP += saleSYP;
+          } else {
+            totalCashUSD += saleUSD;
+            totalCashSYP += saleSYP;
+          }
+
+          const amtStr = (saleUSD > 0 ? `${saleUSD.toFixed(2)} $ ` : '') + (saleSYP > 0 ? `${saleSYP.toLocaleString()} ل.س` : '');
+
+          tableRows += `
+            <tr>
+              <td style="border: 1px solid #ccc; padding: 6px;">${l.date} ${l.time}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">${isDebt ? 'فاتورة بيع آجل (دين)' : 'فاتورة بيع نقدي'}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">${l.customerName || 'زبون عام'}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">${itemsStr}</td>
+              <td style="border: 1px solid #ccc; padding: 6px; font-weight: bold;">${amtStr}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">${l.seller || ''}</td>
+            </tr>
+          `;
+        } else if (l.type === 'DEBT_PAYMENT') {
+          const isUSD = l.wallet.includes('usd');
+          const amtStr = `${l.amount.toLocaleString()} ${isUSD ? '$' : 'ل.س'}`;
+          if (isUSD) totalCashUSD += l.amount;
+          else totalCashSYP += l.amount;
+
+          tableRows += `
+            <tr style="background-color: #f9f9f9;">
+              <td style="border: 1px solid #ccc; padding: 6px;">${l.date} ${l.time}</td>
+              <td style="border: 1px solid #ccc; padding: 6px; color: green; font-weight: bold;">قبض دفعة دين</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">${l.customerName}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">دفعة على الحساب (صندوق: ${getWalletName(l.wallet)})</td>
+              <td style="border: 1px solid #ccc; padding: 6px; font-weight: bold; color: green;">+ ${amtStr}</td>
+              <td style="border: 1px solid #ccc; padding: 6px;">${l.seller || ''}</td>
+            </tr>
+          `;
+        }
+      });
+
+      const printHtml = `
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+          <meta charset="UTF-8">
+          <title>تقرير المبيعات والمقبوضات</title>
+          <style>
+            body { font-family: 'Tajawal', sans-serif, Tahoma; margin: 20px; direction: rtl; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+            th, td { border: 1px solid #bbb; padding: 8px; text-align: right; }
+            th { background-color: #f2f2f2; }
+            .summary { border: 1px solid #333; padding: 14px; border-radius: 6px; background-color: #fdfdfd; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 16px;">
+            <h2 style="margin: 0;">سمارت فون POS - كشف المبيعات والمقبوضات</h2>
+            <p style="margin: 5px 0; color: #555; font-size: 12px;">تاريخ التقرير: ${today} | التوقيت: ${getTime24()}</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ والوقت</th>
+                <th>نوع الحركة</th>
+                <th>اسم الزبون</th>
+                <th>البيان / المواد</th>
+                <th>المبلغ</th>
+                <th>البائع</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows || '<tr><td colspan="6" style="text-align:center; padding:15px;">لا توجد أي حركات مسجلة</td></tr>'}
+            </tbody>
+          </table>
+
+          <div class="summary">
+            <h4 style="margin: 0 0 10px 0;">الإجماليات المحاسبية:</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>• إجمالي المقبوضات النقدية (دولار): <b>${totalCashUSD.toFixed(2)} $</b></div>
+              <div>• إجمالي المقبوضات النقدية (ل.س): <b>${totalCashSYP.toLocaleString()} ل.س</b></div>
+              <div>• إجمالي المبيعات الآجلة (ديون $): <b>${totalDebtsUSD.toFixed(2)} $</b></div>
+              <div>• إجمالي المبيعات الآجلة (ديون ل.س): <b>${totalDebtsSYP.toLocaleString()} ل.س</b></div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const printWin = window.open('', '_blank');
+      printWin.document.open();
+      printWin.document.write(printHtml);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+      }, 500);
+    }
+
+    function executeWithdrawal(targetUser) {
+      const amountInput = targetUser === 'OWNER' ? 'owner-draw-amount' : 'abuhashim-draw-amount';
+      const walletInput = targetUser === 'OWNER' ? 'owner-draw-wallet' : 'abuhashim-draw-wallet';
+      const noteInput = targetUser === 'OWNER' ? 'owner-draw-note' : 'abuhashim-draw-note';
+
+      const amount = parseFloat(document.getElementById(amountInput).value);
+      const wallet = document.getElementById(walletInput).value;
+      const note = document.getElementById(noteInput).value.trim() || 'سحب شخصي';
+
+      if (!amount || amount <= 0) { alert("أدخل مبلغاً صحيحاً!"); return; }
+
+      const currentBalance = Number(systemData.wallets[wallet]) || 0;
+      if (amount > currentBalance) {
+        alert(`عذراً، الرصيد غير كافٍ في ${getWalletName(wallet)}!\nالمتوفر حالياً: ${currentBalance.toLocaleString()}`);
+        return;
+      }
+
+      let totalUSD = 0;
+      let totalSYP = 0;
+      Object.values(systemData.logs).forEach(l => {
+        if (!l.canceled && l.type === 'WITHDRAWAL' && l.targetUser === targetUser) {
+          const amt = Number(l.amount || 0);
+          if (l.wallet.includes('usd')) totalUSD += amt;
+          else if (l.wallet.includes('syp')) totalSYP += amt;
+        }
+      });
+
+      if (wallet.includes('usd')) totalUSD += amount;
+      else totalSYP += amount;
+
+      const updates = {};
+      updates[`wallets/${wallet}`] = currentBalance - amount;
+
+      const logKey = db.ref('logs').push().key;
+      updates[`logs/${logKey}`] = {
+        type: 'WITHDRAWAL',
+        targetUser: targetUser,
+        title: targetUser === 'OWNER' ? `مسحوبات مالك: ${note}` : `مسحوبات أبو هاشم: ${note}`,
+        amount: amount,
+        wallet: wallet,
+        totalUSD: totalUSD,
+        totalSYP: totalSYP,
+        seller: currentSeller,
+        time: getTime24(),
+        date: getDateFormatted()
+      };
+
+      db.ref().update(updates).then(() => {
+        alert("تم تسجيل السحب بنجاح!");
+        document.getElementById(amountInput).value = '';
+        document.getElementById(noteInput).value = '';
+      });
+    }
+
+    function executeManualExchange() {
+      const fromW = document.getElementById('manual-from-wallet').value;
+      const toW = document.getElementById('manual-to-wallet').value;
+      const amount = parseFloat(document.getElementById('manual-fx-amount').value);
+      const rate = parseFloat(document.getElementById('manual-rate-input').value) || exchangeRate;
+      
+      if (!amount || amount <= 0) { alert("أدخل المبلغ!"); return; }
+
+      const curFromBalance = Number(systemData.wallets[fromW]) || 0;
+      if (amount > curFromBalance) {
+        alert(`عذراً، الرصيد غير كافٍ في ${getWalletName(fromW)}!\nالمتوفر حالياً: ${curFromBalance.toLocaleString()}`);
+        return;
+      }
+
+      const fromIsUSD = fromW.includes('usd');
+      const toIsUSD = toW.includes('usd');
+      let received = amount;
+      if (fromIsUSD && !toIsUSD) received = amount * rate;
+      else if (!fromIsUSD && toIsUSD) received = amount / rate;
+
+      const updates = {};
+      updates[`wallets/${fromW}`] = curFromBalance - amount;
+      updates[`wallets/${toW}`] = (Number(systemData.wallets[toW]) || 0) + received;
+
+      const logKey = db.ref('logs').push().key;
+      updates[`logs/${logKey}`] = { type: 'EXCHANGE', title: `تحويل/صرافة من ${getWalletName(fromW)} إلى ${getWalletName(toW)}`, fromWallet: fromW, toWallet: toW, fromAmount: amount, toAmount: received, seller: currentSeller, time: getTime24(), date: getDateFormatted() };
+      db.ref().update(updates).then(() => { alert("تم التحويل بنجاح!"); document.getElementById('manual-fx-amount').value = ''; });
+    }
+
+    function addExpense() {
+      const title = document.getElementById('expense-title').value.trim();
+      const amount = parseFloat(document.getElementById('expense-amount').value);
+      const wallet = document.getElementById('expense-wallet').value;
+      if (!title || !amount || amount <= 0) { alert("أدخل بيان ومبلغ المصروف!"); return; }
+
+      const curBalance = Number(systemData.wallets[wallet]) || 0;
+      if (amount > curBalance) {
+        alert(`عذراً، رصيد ${getWalletName(wallet)} غير كافٍ لتسجيل هذا المصروف!\nالمتوفر: ${curBalance.toLocaleString()}`);
+        return;
+      }
+
+      const updates = {};
+      updates[`wallets/${wallet}`] = curBalance - amount;
+      const logKey = db.ref('logs').push().key;
+      updates[`logs/${logKey}`] = { type: 'EXPENSE', title: `مصروف: ${title}`, amount: amount, wallet: wallet, seller: currentSeller, time: getTime24(), date: getDateFormatted() };
+      db.ref().update(updates).then(() => { alert("تم تسجيل المصروف بنجاح!"); document.getElementById('expense-title').value=''; document.getElementById('expense-amount').value=''; });
+    }
+
+    // دمج المواد وحساب متوسط التكلفة المرجّح للمشتريات
+    function executePurchaseInvoice() {
+      const name = document.getElementById('pur-item-name').value.trim();
+      const cat = document.getElementById('pur-cat').value.trim() || 'عام';
+      const qty = parseInt(document.getElementById('pur-qty').value);
+      const cost = parseFloat(document.getElementById('pur-cost').value);
+      const price = parseFloat(document.getElementById('pur-price').value);
+      const wallet = document.getElementById('pur-wallet').value;
+
+      if (!name || isNaN(qty) || qty <= 0 || isNaN(cost) || cost < 0) { alert("تأكد من إدخال اسم المادة، الكمية، وسعر التكلفة بشكل صحيح!"); return; }
+      
+      const totalCost = cost * qty;
+      const isUSD = wallet.includes('usd');
+      const totalCostInWallet = isUSD ? totalCost : (totalCost * exchangeRate);
+
+      const curBalance = Number(systemData.wallets[wallet]) || 0;
+      if (totalCostInWallet > curBalance) {
+        alert(`عذراً، رصيد ${getWalletName(wallet)} غير كافٍ لإتمام الشراء!\nالمطلوب: ${totalCostInWallet.toLocaleString()} | المتوفر: ${curBalance.toLocaleString()}`);
+        return;
+      }
+
+      // التحقق مما إذا كانت المادة مسجلة مسبقاً لدمجها وحساب متوسط التكلفة
+      let existingItemId = null;
+      for (const [id, it] of Object.entries(systemData.inventory)) {
+        if (it.name && it.name.trim().toLowerCase() === name.toLowerCase()) {
+          existingItemId = id;
+          break;
+        }
+      }
+
+      const updates = {};
+      let finalCost = cost;
+      let finalQty = qty;
+      let finalPrice = (!isNaN(price) && price > 0) ? price : 0;
+      let itemId = existingItemId || db.ref('inventory').push().key;
+
+      if (existingItemId) {
+        const existing = systemData.inventory[existingItemId];
+        const oldQty = Number(existing.quantity) || 0;
+        const oldCost = Number(existing.cost) || 0;
+        finalQty = oldQty + qty;
+
+        // حساب متوسط التكلفة المرجّح
+        if (finalQty > 0) {
+          finalCost = ((oldQty * oldCost) + (qty * cost)) / finalQty;
+        }
+        if (isNaN(price) || price <= 0) {
+          finalPrice = existing.price || 0;
+        }
+      }
+
+      updates[`inventory/${itemId}`] = {
+        name: name,
+        category: cat,
+        quantity: finalQty,
+        cost: parseFloat(finalCost.toFixed(2)),
+        price: finalPrice
+      };
+
+      updates[`wallets/${wallet}`] = curBalance - totalCostInWallet;
+
+      const logKey = db.ref('logs').push().key;
+      updates[`logs/${logKey}`] = {
+        type: 'PURCHASE',
+        title: existingItemId ? `شراء ودمج مادة: ${name} (+${qty} قطعة | متوسط كلفة جديد: ${finalCost.toFixed(2)}$)` : `فاتورة مشتريات مادة جديدة: ${name} (${qty} قطعة)`,
+        seller: currentSeller,
+        time: getTime24(),
+        date: getDateFormatted()
+      };
+
+      db.ref().update(updates).then(() => {
+        closeModal('purchase-modal');
+        document.getElementById('pur-item-name').value = '';
+        alert("تمت عملية الشراء وحساب التكلفة وتحديث المخزون بنجاح!");
+      });
+    }
+
+    function saveOpeningWalletBalance() {
+      const wallet = document.getElementById('opening-wallet-select').value;
+      const amount = parseFloat(document.getElementById('opening-wallet-amount').value);
+      if (isNaN(amount) || amount <= 0) { alert("أدخل مبلغاً صحيحاً!"); return; }
+
+      const updates = {};
+      updates[`wallets/${wallet}`] = (Number(systemData.wallets[wallet]) || 0) + amount;
+
+      const logKey = db.ref('logs').push().key;
+      updates[`logs/${logKey}`] = {
+        type: 'OPENING_CASH',
+        title: `رصيد أول المدة لصندوق ${getWalletName(wallet)}`,
+        amount: amount,
+        wallet: wallet,
+        seller: currentSeller,
+        time: getTime24(),
+        date: getDateFormatted()
+      };
+
+      db.ref().update(updates).then(() => {
+        alert("تم حفظ الرصيد الافتتاحي للصندوق وتوثيقه في السجل!");
+        document.getElementById('opening-wallet-amount').value = '';
+      });
+    }
+
+    function openOpeningStockModal() {
+      document.getElementById('open-stock-name').value = '';
+      document.getElementById('open-stock-qty').value = '1';
+      document.getElementById('open-stock-cost').value = '';
+      document.getElementById('open-stock-price').value = '';
+      document.getElementById('opening-stock-modal').classList.add('show');
+    }
+
+    // دمج المواد وحساب متوسط التكلفة في بضاعة أول المدة
+    function executeOpeningStock() {
+      const name = document.getElementById('open-stock-name').value.trim();
+      const cat = document.getElementById('open-stock-cat').value.trim() || 'عام';
+      const qty = parseInt(document.getElementById('open-stock-qty').value);
+      const cost = parseFloat(document.getElementById('open-stock-cost').value) || 0;
+      const price = parseFloat(document.getElementById('open-stock-price').value) || 0;
+
+      if (!name || isNaN(qty) || qty <= 0) { alert("أدخل اسم المادة والكمية بشكل صحيح!"); return; }
+
+      let existingItemId = null;
+      for (const [id, it] of Object.entries(systemData.inventory)) {
+        if (it.name && it.name.trim().toLowerCase() === name.toLowerCase()) {
+          existingItemId = id;
+          break;
+        }
+      }
+
+      const updates = {};
+      let finalCost = cost;
+      let finalQty = qty;
+      let finalPrice = price;
+      let itemId = existingItemId || db.ref('inventory').push().key;
+
+      if (existingItemId) {
+        const existing = systemData.inventory[existingItemId];
+        const oldQty = Number(existing.quantity) || 0;
+        const oldCost = Number(existing.cost) || 0;
+        finalQty = oldQty + qty;
+
+        if (finalQty > 0) {
+          finalCost = ((oldQty * oldCost) + (qty * cost)) / finalQty;
+        }
+        if (price <= 0) {
+          finalPrice = existing.price || 0;
+        }
+      }
+
+      updates[`inventory/${itemId}`] = {
+        name: name,
+        category: cat,
+        quantity: finalQty,
+        cost: parseFloat(finalCost.toFixed(2)),
+        price: finalPrice
+      };
+
+      const logKey = db.ref('logs').push().key;
+      updates[`logs/${logKey}`] = {
+        type: 'OPENING_STOCK',
+        title: existingItemId ? `دمج بضاعة أول مدة: ${name} (+${qty} قطعة | متوسط كلفة: ${finalCost.toFixed(2)}$)` : `بضاعة أول المدة: ${name} (${qty} قطعة)`,
+        seller: currentSeller,
+        time: getTime24(),
+        date: getDateFormatted()
+      };
+
+      db.ref().update(updates).then(() => {
+        closeModal('opening-stock-modal');
+        alert("تمت إضافة بضاعة أول المدة ودمجها بنجاح دون المساس بالصناديق!");
+      });
+    }
+
+    function openEditInventoryModal(itemId) {
+      const item = systemData.inventory[itemId];
+      if (!item) return;
+
+      document.getElementById('edit-inv-id').value = itemId;
+      document.getElementById('edit-inv-name').value = item.name || '';
+      document.getElementById('edit-inv-cat').value = item.category || 'عام';
+      document.getElementById('edit-inv-qty').value = item.quantity || 0;
+      document.getElementById('edit-inv-cost').value = item.cost || 0;
+      document.getElementById('edit-inv-price').value = item.price || 0;
+
+      document.getElementById('edit-inventory-modal').classList.add('show');
+    }
+
+    function saveEditedInventoryItem() {
+      const id = document.getElementById('edit-inv-id').value;
+      const name = document.getElementById('edit-inv-name').value.trim();
+      const cat = document.getElementById('edit-inv-cat').value.trim() || 'عام';
+      const qty = parseInt(document.getElementById('edit-inv-qty').value);
+      const cost = parseFloat(document.getElementById('edit-inv-cost').value);
+      const price = parseFloat(document.getElementById('edit-inv-price').value);
+
+      if (!name || isNaN(qty) || isNaN(cost) || isNaN(price)) {
+        alert("تأكد من إدخال كافة الحقول بشكل صحيح!");
+        return;
+      }
+
+      const updates = {};
+      updates[`inventory/${id}/name`] = name;
+      updates[`inventory/${id}/category`] = cat;
+      updates[`inventory/${id}/quantity`] = qty;
+      updates[`inventory/${id}/cost`] = cost;
+      updates[`inventory/${id}/price`] = price;
+
+      db.ref().update(updates).then(() => {
+        closeModal('edit-inventory-modal');
+        alert("تم حفظ تعديل المادة في المخزون بنجاح!");
+      });
+    }
+
+    function openEditSaleModal(logKey) {
+      const entry = systemData.logs[logKey];
+      if (!entry || !entry.items) return;
+      currentEditingLogKey = logKey;
+      editingItemsBuffer = JSON.parse(JSON.stringify(entry.items));
+
+      const container = document.getElementById('edit-sale-items-container');
+      container.innerHTML = '';
+      editingItemsBuffer.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'form-group';
+        div.style = 'background:rgba(0,0,0,0.2); padding:10px; border-radius:8px; margin-bottom:8px;';
+        div.innerHTML = `
+          <div style="font-weight:700; margin-bottom:4px;">${item.name}</div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+            <div><label style="font-size:0.75rem; color:var(--text-muted)">الكمية (0 للإلغاء):</label><input type="number" class="form-control" id="edit-qty-${idx}" value="${item.quantity}" min="0" oninput="updateEditingBuffer(${idx})"></div>
+            <div><label style="font-size:0.75rem; color:var(--text-muted)">السعر:</label><input type="number" class="form-control" id="edit-price-${idx}" value="${item.price}" step="0.25" oninput="updateEditingBuffer(${idx})"></div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+      document.getElementById('edit-sale-modal').classList.add('show');
+    }
+
+    function updateEditingBuffer(idx) {
+      const q = parseInt(document.getElementById(`edit-qty-${idx}`).value);
+      const p = parseFloat(document.getElementById(`edit-price-${idx}`).value);
+      if (!isNaN(q)) editingItemsBuffer[idx].quantity = q;
+      if (!isNaN(p)) editingItemsBuffer[idx].price = p;
+    }
+
+    function saveEditedSale() {
+      if (!currentEditingLogKey) return;
+      const oldEntry = systemData.logs[currentEditingLogKey];
+      const isDebt = oldEntry.paymentType === 'DEBT';
+      const customer = oldEntry.customerName;
+      
+      let workingInventory = JSON.parse(JSON.stringify(systemData.inventory));
+      let workingWallets = JSON.parse(JSON.stringify(systemData.wallets));
+
+      oldEntry.items.forEach(it => {
+        if (!workingInventory[it.id]) workingInventory[it.id] = { quantity: 0 };
+        workingInventory[it.id].quantity = (Number(workingInventory[it.id].quantity) || 0) + it.quantity;
+        
+        const itTotal = it.price * it.quantity;
+        if (!isDebt) {
+          const w = it.wallet || 'cash_usd';
+          workingWallets[w] = (Number(workingWallets[w]) || 0) - itTotal;
+        }
+      });
+
+      const newValidItems = [];
+      let newTotalProfit = 0;
+
+      editingItemsBuffer.forEach(it => {
+        if (it.quantity > 0) {
+          newValidItems.push(it);
+          const itemTotal = it.price * it.quantity;
+          const itemCostTotal = it.cost * it.quantity;
+          const isUSD = it.wallet.includes('usd');
+          const itemTotalUSD = isUSD ? itemTotal : (itemTotal / exchangeRate);
+          newTotalProfit += (itemTotalUSD - itemCostTotal);
+
+          if (!workingInventory[it.id]) workingInventory[it.id] = { quantity: 0 };
+          workingInventory[it.id].quantity = (Number(workingInventory[it.id].quantity) || 0) - it.quantity;
+
+          if (!isDebt) {
+            const w = it.wallet || 'cash_usd';
+            workingWallets[w] = (Number(workingWallets[w]) || 0) + itemTotal;
+          }
+        }
+      });
+
+      const updates = {};
+      const affectedItemIds = new Set();
+      oldEntry.items.forEach(i => affectedItemIds.add(i.id));
+      editingItemsBuffer.forEach(i => affectedItemIds.add(i.id));
+
+      affectedItemIds.forEach(id => {
+        if (workingInventory[id]) {
+          updates[`inventory/${id}/quantity`] = Math.max(0, workingInventory[id].quantity);
+        }
+      });
+
+      if (!isDebt) {
+        ['cash_usd', 'cash_syp', 'cham_usd', 'cham_syp'].forEach(w => {
+          updates[`wallets/${w}`] = workingWallets[w];
+        });
+      }
+
+      if (newValidItems.length === 0) {
+        updates[`logs/${currentEditingLogKey}/canceled`] = true;
+        updates[`logs/${currentEditingLogKey}/title`] = `[مُلغاة بالكامل] ${oldEntry.title}`;
+        updates[`logs/${currentEditingLogKey}/profit`] = 0;
+      } else {
+        updates[`logs/${currentEditingLogKey}/items`] = newValidItems;
+        updates[`logs/${currentEditingLogKey}/profit`] = newTotalProfit;
+        updates[`logs/${currentEditingLogKey}/title`] = `فاتورة مُعدلة (${newValidItems.length} مواد) - ${customer}`;
+      }
+
+      db.ref().update(updates).then(() => {
+        closeModal('edit-sale-modal');
+        alert("تم تعديل الفاتورة وتحديث الأرصدة والمستودع بدقة تامة!");
+      });
+    }
+
+    function setLogFilter(type, el) {
+      activeLogFilter = type;
+      document.querySelectorAll('.filter-pills .pill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      renderAuditLog();
+    }
+
+    function renderAuditLog() {
+      const container = document.getElementById('log-results-container');
+      container.innerHTML = '';
+      const search = (document.getElementById('log-search-input')?.value || '').toLowerCase().trim();
+
+      const logKeys = Object.keys(systemData.logs).reverse();
+      const groupedByDate = {};
+
+      logKeys.forEach(k => {
+        const item = systemData.logs[k];
+        item.id = k;
+        if (activeLogFilter !== 'ALL' && item.type !== activeLogFilter) return;
+        if (search && !item.title.toLowerCase().includes(search)) return;
+
+        const dateKey = item.date || 'أخرى';
+        if (!groupedByDate[dateKey]) groupedByDate[dateKey] = [];
+        groupedByDate[dateKey].push(item);
+      });
+
+      if (Object.keys(groupedByDate).length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 20px;">لا توجد سجلات</p>';
+        return;
+      }
+
+      for (const [dateStr, logsList] of Object.entries(groupedByDate)) {
+        const accordionEl = document.createElement('div');
+        accordionEl.className = 'day-accordion-card';
+
+        let bodyHtml = '';
+        logsList.forEach(item => {
+          let extraDetails = '';
+          if (item.type === 'SALE' && item.items) {
+            extraDetails = `<div style="margin-top:6px; font-size:0.8rem; background:rgba(0,0,0,0.15); padding:6px; border-radius:6px;">` + 
+              item.items.map(i => `• ${i.name} | الكمية: ${i.quantity} | السعر: ${i.price} | الصندوق: ${getWalletName(i.wallet)}`).join('<br>') + `</div>`;
+          } else if (item.type === 'WITHDRAWAL') {
+            const curSymbol = item.wallet.includes('syp') ? 'ل.س' : '$';
+            extraDetails = `
+              <div style="margin-top:4px; font-size:0.82rem; color:var(--accent-amber);">
+                المبلغ المسحوب: <b>${item.amount.toLocaleString()} ${curSymbol}</b> (من صندوق: ${getWalletName(item.wallet)})<br>
+                <b>الإجمالي التراكمي الشامل:</b> ${Number(item.totalUSD || 0).toFixed(2)} $ | ${Number(item.totalSYP || 0).toLocaleString()} ل.س
+              </div>`;
+          } else if (item.type === 'DEBT_PAYMENT') {
+            const curSymbol = item.wallet.includes('syp') ? 'ل.س' : '$';
+            extraDetails = `<div style="margin-top:4px; font-size:0.82rem; color:var(--accent-green);">المبلغ المقبوض: <b>${item.amount.toLocaleString()} ${curSymbol}</b> (إيداع في: ${getWalletName(item.wallet)}) | المتبقي: ${item.remainingDebt.toLocaleString()} ${curSymbol}</div>`;
+          } else if (item.type === 'OPENING_CASH') {
+            const curSymbol = item.wallet.includes('syp') ? 'ل.س' : '$';
+            extraDetails = `<div style="margin-top:4px; font-size:0.82rem; color:var(--accent-green);">المبلغ الافتتاحي: <b>${item.amount.toLocaleString()} ${curSymbol}</b></div>`;
+          }
+
+          bodyHtml += `
+            <div class="log-item">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; font-size:0.9rem;">${item.title}</span>
+                ${item.type === 'SALE' && !item.canceled ? `<button class="btn btn-outline" style="padding:2px 6px; font-size:0.75rem;" onclick="openEditSaleModal('${item.id}')">تعديل</button>` : ''}
+              </div>
+              ${extraDetails}
+              <div class="log-meta">
+                <span>🕒 ${item.time || ''}</span>
+                <span class="badge-seller">البائع: ${item.seller || 'غير محدد'}</span>
+              </div>
+            </div>
+          `;
+        });
+
+        accordionEl.innerHTML = `
+          <div class="day-accordion-header" onclick="toggleDayAccordion(this)">
+            <span style="font-weight:800;">📅 يوم: ${dateStr} (${logsList.length} حركات)</span>
+            <i data-lucide="chevron-down" style="width:16px;"></i>
+          </div>
+          <div class="day-content-body">${bodyHtml}</div>
+        `;
+        container.appendChild(accordionEl);
+      }
+      lucide.createIcons();
+    }
+
+    function toggleDayAccordion(headerEl) {
+      const body = headerEl.nextElementSibling;
+      body.classList.toggle('show');
+    }
+
+    function getWalletName(wKey) {
+      if (wKey === 'cash_usd') return 'كاش $';
+      if (wKey === 'cash_syp') return 'كاش ل.س';
+      if (wKey === 'cham_usd') return 'شام $';
+      if (wKey === 'cham_syp') return 'شام ل.س';
+      return wKey;
+    }
+
+    function renderInventoryUI() {
+      const container = document.getElementById('inventory-list');
+      if (!container) return;
+      container.innerHTML = '';
+      Object.keys(systemData.inventory).forEach(id => {
+        const it = systemData.inventory[id];
+        const row = document.createElement('div');
+        row.style = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(0,0,0,0.15); border-radius: 8px; margin-bottom: 6px;';
+        row.innerHTML = `
+          <div>
+            <b>${it.name}</b> <span style="font-size:0.78rem; color:var(--text-muted);">(${it.category || 'عام'})</span>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">الكمية: <b style="color:var(--accent-amber);">${it.quantity || 0}</b> | متوسط التكلفة: ${Number(it.cost || 0).toFixed(2)}$ | البيع: ${it.price || 0}$</div>
+          </div>
+          <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.78rem;" onclick="openEditInventoryModal('${id}')">
+            <i data-lucide="edit-3" style="width:14px;"></i> تعديل
+          </button>
+        `;
+        container.appendChild(row);
+      });
+      lucide.createIcons();
+    }
+
+    function populateItemsDatalist() {
+      const datalist = document.getElementById('existing-items-datalist');
+      if (!datalist) return;
+      datalist.innerHTML = '';
+      Object.values(systemData.inventory).forEach(it => {
+        if (it.name) {
+          const opt = document.createElement('option');
+          opt.value = it.name;
+          datalist.appendChild(opt);
+        }
+      });
+    }
+
+    function openPurchaseModal() { document.getElementById('purchase-modal').classList.add('show'); }
+
+    // النسخ الاحتياطي السحابي التلقائي اليومي
+    function triggerDailySnapshot() {
+      const today = getDateFormatted();
+      const lastSnapshotDate = localStorage.getItem('last_auto_snapshot_date');
+      if (lastSnapshotDate === today) return;
+
+      const snapshot = {
+        inventory: systemData.inventory || {},
+        wallets: systemData.wallets || {},
+        logs: systemData.logs || {},
+        customerPhones: systemData.customerPhones || {},
+        exchangeRate: exchangeRate,
+        snapshotDate: today,
+        snapshotTime: getTime24()
+      };
+
+      db.ref(`backups/${today}`).set(snapshot).then(() => {
+        localStorage.setItem('last_auto_snapshot_date', today);
+      }).catch(err => console.log("Auto-snapshot note:", err));
+    }
+
+    // تنزيل ملف النسخة الاحتياطية JSON محلياً
+    function exportDataBackup() {
+      const backupData = {
+        inventory: systemData.inventory || {},
+        wallets: systemData.wallets || {},
+        logs: systemData.logs || {},
+        customerPhones: systemData.customerPhones || {},
+        settings: { exchangeRate: exchangeRate },
+        exportDate: getDateFormatted(),
+        exportTime: getTime24()
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `smartphone_pos_backup_${getDateFormatted()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // استعادة البيانات من ملف JSON
+    function triggerRestoreInput() {
+      document.getElementById('restore-file-input').click();
+    }
+
+    function importDataBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!confirm("تنبيه أمان هام:\nاستعادة النسخة الاحتياطية ستستبدل البيانات الحالية في النظام بمحتوى هذا الملف.\nهل أنت متأكد من الاستمرار؟")) {
+        event.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed.inventory && !parsed.wallets && !parsed.logs) {
+            alert("الملف المختار غير صالح كنظام نسخ احتياطي!");
+            return;
+          }
+
+          const updates = {};
+          if (parsed.inventory) updates['inventory'] = parsed.inventory;
+          if (parsed.wallets) updates['wallets'] = parsed.wallets;
+          if (parsed.logs) updates['logs'] = parsed.logs;
+          if (parsed.customerPhones) updates['customerPhones'] = parsed.customerPhones;
+          if (parsed.settings) updates['settings'] = parsed.settings;
+
+          db.ref().update(updates).then(() => {
+            alert("تمت استعادة النسخة الاحتياطية بنجاح واكتمل تحديث النظام!");
+          });
+        } catch(err) {
+          alert("حدث خطأ أثناء قراءة ملف النسخة الاحتياطية: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    function switchTab(tabId, el) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+      if (el) el.classList.add('active');
+      lucide.createIcons();
+    }
+    function closeModal(modalId) { document.getElementById(modalId).classList.remove('show'); }
+
+    window.addEventListener('DOMContentLoaded', () => { 
+      lucide.createIcons(); 
+      populateItemsDatalist();
+    });
+  </script>
+</body>
+</html>
